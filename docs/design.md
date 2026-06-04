@@ -41,7 +41,9 @@ mandatory では扱わない機能:
 - map は「見た目どおりに保持」し、検証時だけ長方形に正規化する。
 - 描画は毎フレーム off-screen image に描いてから `mlx_put_image_to_window` する。
 - エラー時は必ず `"Error\n"` と明示的メッセージを返し、途中まで確保した資源も解放する。
-- Linux 本番を基準に設計する。ローカル macOS は補助環境と位置付ける。
+- 開発は macOS で進め、最終確認は Linux で行う前提にする。
+- macOS / Linux 差分は platform 層へ隔離し、parser / validator /
+  raycast core は共通 code として保つ。
 
 ### 3.1 Norm 反映方針
 
@@ -55,6 +57,18 @@ mandatory では扱わない機能:
 - 変数宣言は関数先頭に寄せ、1 行 1 変数、宣言と初期化を分離する前提で設計する。
 - マクロは定数用途だけに限定し、ロジックの隠蔽には使わない。
 - すべての `.c` / `.h` は 42 header、適切な include guard、未使用 include 禁止を前提にする。
+
+### 3.2 Platform 分離方針
+
+- common code は backend 固有の header を直接参照しない。
+- keycode, event, mask, close handling, display cleanup の差分は
+  `platform` module に閉じ込める。
+- common code は `KEY_*`, `EVENT_*` のような project 側の定数だけを見る。
+- hook 登録は `platform_bind_hooks()` のような薄い関数へ集約する。
+- backend 生 keycode を `KEY_*` へ正規化する責務も `platform` 側へ寄せる。
+- MLX の共通 subset のみを使い、local mac と final Linux で API 差分を
+  ほぼ出さない。
+- texture 形式は mac / Linux の共通運用を優先して `.xpm` を前提にする。
 
 ## 4. 全体構成
 
@@ -80,6 +94,11 @@ mandatory では扱わない機能:
 - `input`
   - キー状態管理
   - 移動 / 回転の更新
+- `platform`
+  - backend ごとの差分吸収
+  - event / key constant の定義
+  - hook 登録
+  - MLX 終了処理差分
 - `util`
   - エラー出力
   - 解放補助
@@ -96,10 +115,12 @@ main
     -> validate
     -> render
     -> input
+    -> platform
     -> util
 ```
 
 `render` が `parse` に依存しないように、実行時に必要な値は `scene` / `player` / `app` に集約する。
+`input` と `app` は `platform` の公開 API は使うが、backend header には依存しない。
 
 ### 4.3 Norm 制約からの分割戦略
 
@@ -107,6 +128,7 @@ main
 - validator は「文字検証」「spawn 検証」「閉包判定」に分割する。
 - raycast は「ray 初期化」「DDA 前進」「当たり判定後の計算」「texture 選択」「列描画」に分割する。
 - input 更新は「delta time 更新」「前後移動」「左右移動」「回転」に分割する。
+- platform 差分は「定数」「hook」「cleanup」に分割し、common 処理へ混ぜない。
 - ローカル変数数を抑えるため、中間状態は専用構造体に退避する。
 
 ## 5. データ構造
@@ -259,6 +281,7 @@ typedef struct s_app
 - `t_time` は delta time 計算を専用化し、移動更新関数の責務を軽くする。
 - `t_ray` は 1 列分の DDA 状態をまとめ、raycast 関数の変数数超過を防ぐ。
 - `t_draw` は 描画区間と texture 参照をまとめ、列描画処理を分割しやすくする。
+- backend 差分に関する値は `t_app` へ散らさず、可能な限り `platform` 側で閉じる。
 
 ## 6. 初期化シーケンス
 
@@ -283,6 +306,7 @@ main
 - parse / validate を MLX 初期化前に済ませる。設定ファイルが壊れているだけでウィンドウを開かない。
 - texture path の存在確認は parse / validate で `open()` により行う。
 - 実際の画像ロードは MLX 初期化後に行う。
+- local mac / final Linux のどちらでも、この順序自体は変えない。
 
 ## 7. `.cub` パース設計
 
@@ -488,7 +512,10 @@ Norm 対応のため、1 列の描画は次の単位まで分割する。
 - `DestroyNotify`
 - `LoopHook`
 
-Linux 前提ならキー定数は数値直書きせず、可能なら `X11/keysym.h` を使う。
+common code では backend 生定数を直接使わない。
+`platform.h` 側で `KEY_ESC`, `KEY_W`, `EVENT_KEY_PRESS` などへ寄せる。
+backend 生 event / keycode は platform 側で project 定数へ変換し、
+`input` module は正規化後の値だけを扱う。
 
 ### 10.2 移動
 
@@ -520,25 +547,23 @@ Norm 対応のため、入力更新は次の関数に分割する。
 
 ### 10.3 衝突判定
 
-ここは subject 上やや解釈の余地がある。
+mandatory 実装では `can_move_to(x, y)` を通し、
+少なくとも `1` と padding space への侵入を禁止する。
 
-- bonus list に `Wall collisions` がある。
-- ただし、迷路内を移動する mandatory 実装としては壁侵入禁止の方が自然。
+この判定を 1 箇所に隔離する理由は次の通り。
 
-暫定方針:
-
-- `can_move_to(x, y)` を独立関数にする。
-- 初期設計では `1` と space への侵入を禁止する。
-- もし strict に bonus と分離したくなった場合、この関数差し替えで対応できるようにする。
-
-この点は実装前に最終決定したい。
+- movement 実装から map 判定詳細を切り離せる
+- 仕様調整が必要でも差分を局所化できる
+- mac / Linux で挙動差を出さずに済む
 
 ## 11. 画像ロード設計
 
-- Linux MiniLibX の安定性を優先し、初期実装では `mlx_xpm_file_to_image` を使う前提とする。
-- path は subject 上汎用だが、実運用上は `.xpm` を採用するのが安全。
+- mac / Linux 共通 subset を優先し、初期実装では
+  `mlx_xpm_file_to_image` を使う前提とする。
+- path は subject 上汎用だが、移行差分を増やさないため `.xpm` を採用する。
 - texture サイズは正方形である必要はないが、初期実装では同一サイズ想定の方が単純。
-- keycode や画面サイズ、移動速度のような固定値は大文字マクロまたは enum に寄せ、ロジックをマクロ化しない。
+- keycode や event は backend header 直書きではなく project 定数へ寄せる。
+- 画面サイズや移動速度のような固定値は大文字マクロまたは enum に寄せ、ロジックをマクロ化しない。
 
 ここも設計上の実装方針であり、subject 自体は path 形式しか制約していない。
 
@@ -566,12 +591,19 @@ Error
 1. frame image
 2. texture images
 3. window
-4. display / mlx context
+4. platform 固有の display / mlx cleanup
 5. map rows
 6. texture path
 7. その他動的確保領域
 
 部分初期化失敗に備え、各ポインタは `NULL` 初期化する。
+
+backend 差分:
+
+- macOS
+  - image / window を destroy して終了する
+- Linux
+  - 追加で `mlx_destroy_display()` と `free(mlx_ptr)` が必要になる
 
 ## 13. 想定ファイル構成
 
@@ -585,6 +617,7 @@ include/
   validate.h
   render.h
   input.h
+  platform.h
   error.h
 
 src/
@@ -626,6 +659,11 @@ src/
     move.c
     rotate.c
 
+  platform/
+    platform_keys.c
+    platform_hooks.c
+    platform_destroy.c
+
   util/
     error.c
     free.c
@@ -637,6 +675,7 @@ src/
 - `cub3d.h` は共通型と公開 API を最小限だけ集約する。
 - `types.h` にすべての `struct` / `typedef` を集約し、`.c` で型宣言しない。
 - `config.h` には定数マクロだけを置く。
+- `platform.h` は common code が参照してよい唯一の backend 境界とする。
 - header の相互依存を避けるため、必要に応じて前方宣言を使う。
 - 各 `.c` は最大 5 関数までを上限にする。
 - file 数は多いが、Norm の関数長制限と変数数制限を守りやすい。
@@ -644,17 +683,19 @@ src/
 ## 14. 実装順序
 
 1. 共通構造体とヘッダ作成
-2. エラー / cleanup 基盤作成
-3. `.cub` 読込
-4. texture / color / map parse
-5. map validate
-6. player 初期化
-7. MLX window / image 初期化
-8. floor / ceiling の単色描画
-9. 壁線のみの raycast
-10. texture 付き raycast
-11. 入力と移動
-12. 異常系テスト
+2. platform 境界の作成
+3. エラー / cleanup 基盤作成
+4. `.cub` 読込
+5. texture / color / map parse
+6. map validate
+7. player 初期化
+8. mac で MLX window / image 初期化
+9. floor / ceiling の単色描画
+10. 壁線のみの raycast
+11. texture 付き raycast
+12. 入力と移動
+13. Linux backend 差分確認
+14. 異常系テスト
 
 この順序にすると、常に「表示できる最小状態」を積み上げながら進められる。
 
@@ -681,21 +722,24 @@ src/
 
 ### 15.2 runtime
 
+- mac local で起動と基本操作を確認できる
 - 起動直後に終了できる
 - 矢印回転が滑らか
 - `WASD` が想定通り動く
 - 窓 close でもリークなく終了
 - 長時間ループでもクラッシュしない
 
-確認は可能な限り `linux()` コンテナ側で行う。
+確認方針:
 
-## 16. 要確認事項
+- 反復中の動作確認は mac local を優先する
+- parser / validator / build の互換確認は `linux()` でも行う
+- 最終確認は `linux()` または Linux 実環境を基準にする
 
-現時点で実装前に詰めたい点は次の 2 つ。
+## 16. 固定判断
 
-1. mandatory で壁衝突を有効にするか
-   - 私は「有効にする」前提が自然だと考えている。
-   - ただし subject の bonus 文言と衝突するので、必要なら切り替え可能な構成にする。
-2. texture 入力形式を `.xpm` 前提に寄せるか
-   - Linux MiniLibX を考えると `.xpm` 前提が最も堅い。
-   - subject 上は path しか縛っていないので、README と運用ルールで明示する手もある。
+現時点の設計では次を固定判断とする。
+
+1. local 開発は macOS、最終確認は Linux とする
+2. backend 差分は `platform` 層へ隔離する
+3. movement は `can_move_to()` 経由で wall / padding を拒否する
+4. texture asset は `.xpm` を前提にする

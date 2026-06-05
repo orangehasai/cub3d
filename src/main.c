@@ -38,11 +38,18 @@ static int	validate_args(int argc, char **argv)
 static int	run_game(t_game *game, const char *path)
 {
 	char	**lines;
+	int		map_start;
 
 	init_game(game);
 	if (read_file(path, &lines))
 		return (1);
+	if (parse_elements(&game->scene, lines, &map_start))
+	{
+		free_strs(lines);
+		return (1);
+	}
 	free_strs(lines);
+	(void)map_start;
 	return (0);
 }
 

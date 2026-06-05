@@ -11,3 +11,10 @@
 /* ************************************************************************** */
 
 #include "cub3d.h"
+
+const char	*skip_spaces(const char *str)
+{
+	while (*str == ' ' || *str == '\t')
+		str++;
+	return (str);
+}

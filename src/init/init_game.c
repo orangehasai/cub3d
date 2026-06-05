@@ -17,5 +17,7 @@ void	init_game(t_game *game)
 	if (!game)
 		return ;
 	ft_bzero(game, sizeof(*game));
+	game->scene.floor.value = -1;
+	game->scene.ceiling.value = -1;
 	game->running = 1;
 }

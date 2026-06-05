@@ -161,5 +161,6 @@ int				can_move_to(t_game *game, double x, double y);
 int				print_error(const char *message);
 void			free_strs(char **strs);
 void			free_map(t_map *map);
+const char		*skip_spaces(const char *str);
 
 #endif

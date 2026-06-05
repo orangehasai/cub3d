@@ -26,6 +26,7 @@
 - `libft` は build に含める
 - key / event は Linux の `X11` 定数を使う
 - runtime map は padding 済み `grid` を使う
+- validator の実装は `src/parse/validate_map.c` に寄せる
 - 衝突判定は `can_move_to()` に寄せる
 - movement / rotation は `delta time` ベースにする
 
@@ -58,8 +59,8 @@
 | T13 | Ray init and DDA stepping | T08 T10 | 列ごとの ray 初期化と DDA による壁 hit ができる | `t_ray` 集約、side 判定、無限 loop 防止 |
 | T14 | Distance, wall side, and texture sampling | T11 T13 | `perp_wall_dist`, draw range, texture 選択、`tex_x` が計算できる | fish-eye 防止、方角判定、texture 反転 |
 | T15 | Draw one wall column and full render pass | T12 T14 | 全列 raycast して frame を window へ出せる | clear -> wall draw -> present の順序 |
-| T16 | Hook registration and key state handling | T10 T15 | `KeyPress`, `KeyRelease`, `DestroyNotify`, `Expose`, `LoopHook` を登録し、key state を更新できる | `mlx_key_hook` 不使用、X11 keysym 使用 |
-| T17 | Delta time, movement, and rotation | T08 T09 T16 | `delta_sec` 更新、前後移動、平行移動、左右回転ができる | `can_move_to()` 集約、frame 依存を避ける |
+| T16 | Hook registration and key state handling | T10 T15 | `KeyPress`, `KeyRelease`, `DestroyNotify`, `Expose`, `mlx_loop_hook` を登録し、key state を更新できる | `mlx_key_hook` 不使用、X11 keysym 使用 |
+| T17 | Delta time, movement, and rotation | T08 T09 T16 | `delta_sec` 更新、前後移動、平行移動、左右回転ができ、半径つき衝突判定で壁めり込みと角抜けを防げる | `can_move_to()` 集約、`PLAYER_RADIUS`、軸分離更新、frame 依存を避ける |
 | T18 | Unified loop and clean exit | T03 T15 T16 T17 | loop 1 回で update + render が成立し、`ESC` / close で安全に終了できる | Linux cleanup、逆順解放、部分初期化対応 |
 | T19 | Invalid maps and positive smoke assets | T07 T09 T11 T15 | 異常系 `.cub` と正常系最小 map / texture が揃う | 1 file 1 failure 要因、smoke test 最小構成 |
 | T20 | Ubuntu VM verification, norm, and final cleanup | T18 T19 | Ubuntu VM 上で build / run / `norminette` を確認し、最後に `make clean` と `make fclean` を行う | mandatory 要件、Norm、README 反映漏れ |
@@ -92,6 +93,7 @@
     README を task に反映している
 - `docs/design.md`
   - Linux 固定、`platform` 廃止、`cub3d.h` 中心、`grid` 流用、
+    `validate_map.c` へ validator 集約、
     `can_move_to()` 集約を task 前提に反映している
 - `docs/lecture.md`
   - `minilibx-linux`, `mlx_hook`, `X11/keysym.h`, `perp_wall_dist`,

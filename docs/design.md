@@ -38,7 +38,7 @@ Ubuntu 22.04 + `minilibx-linux` 前提で実装するための土台を定義す
 
 今回残すこと:
 
-- `parse`, `validate`, `init`, `render`, `input`, `cleanup` の責務分離
+- `parse`, `validate`, `init`, `render`, `input`, `cleanup` の論理責務分離
 - map 閉包判定のための padding grid + flood fill
 - raycast 計算状態を構造体へ寄せる設計
 - cleanup の逆順解放
@@ -62,7 +62,6 @@ Ubuntu 22.04 + `minilibx-linux` 前提で実装するための土台を定義す
 - `parse`
   - file 読み込み
   - texture / color / map 解析
-- `validate`
   - map 文字検証
   - spawn 検証
   - 閉包判定
@@ -87,7 +86,6 @@ Ubuntu 22.04 + `minilibx-linux` 前提で実装するための土台を定義す
 main
   -> init
   -> parse
-  -> validate
   -> render
   -> input
   -> utils
@@ -267,8 +265,7 @@ main
   -> .cub 読込
   -> element parse
   -> map parse
-  -> map validate
-  -> player 初期化
+  -> map validate + player 初期化
   -> mlx_init
   -> mlx_new_window
   -> frame image 作成
@@ -280,7 +277,7 @@ main
 
 要点:
 
-- parse / validate が通るまで window を開かない
+- parse / validate と player 初期化が通るまで window を開かない
 - texture path の妥当性確認は parse 時に行う
 - 実画像の読込は MLX 初期化後に行う
 
@@ -321,6 +318,10 @@ main
 - space も map の一部として保存する
 
 ## 10. validate 設計
+
+今回は file 数を増やしすぎないため、
+validator の実装は `src/parse/validate_map.c` に寄せる前提にする。
+ここでいう `validate` は directory 名ではなく論理責務である。
 
 ### 10.1 文字検証
 
@@ -438,11 +439,23 @@ rot_step = ROT_SPEED * delta_sec
 `can_move_to(x, y)` を用意し、
 次の cell へ進めるかどうかを 1 箇所で判定する。
 
+player は点ではなく小さな半径を持つものとして扱う。
+本設計では `PLAYER_RADIUS = 0.25` を採用する。
+
 拒否対象:
 
 - `1`
 - space
 - map 範囲外
+
+判定方針:
+
+- `x`, `y` を同時に更新せず、軸ごとに分けて更新する
+- `next_x, cur_y` と `cur_x, next_y` を別々に確認する
+- 判定時は中心 1 点ではなく、`x ± radius`, `y ± radius` を使う
+
+この方針により、
+壁へのめり込みと角のすり抜けを抑える。
 
 ## 13. エラー処理と cleanup
 
@@ -505,6 +518,13 @@ src/
     error.c
     free.c
     string.c
+
+maps/
+  invalid/
+  valid/
+
+textures/
+  *.xpm
 ```
 
 この構成にした理由:
@@ -512,6 +532,7 @@ src/
 - mandatory に必要な責務は残る
 - file 数が過剰にならない
 - それでも Norm で関数を逃がせる
+- validator を `validate_map.c` へ寄せることで directory 数を増やさずに済む
 
 ## 15. 実装順序
 
@@ -520,8 +541,7 @@ src/
 3. error / cleanup 基盤
 4. `.cub` 読込
 5. texture / color / map parse
-6. map validate
-7. player 初期化
+6. map validate + player 初期化
 8. MLX window / frame image 初期化
 9. texture image 読込
 10. 背景描画

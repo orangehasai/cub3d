@@ -314,6 +314,11 @@ parser は次の順に考えると分かりやすい。
 
 重要なのは「読込」と「意味解釈」を混ぜすぎないこと。
 
+今回の file 構成では directory を増やしすぎないため、
+validator の本体は `src/parse/validate_map.c` に寄せる想定でよい。
+つまり `validate` は module の論理責務であり、
+必ずしも専用 directory を切る必要はない。
+
 ### 10.3 map の閉包判定
 
 最も堅い方法は次である。
@@ -336,6 +341,33 @@ space を valid map cell とみなさず、
 - `1`
 - space
 - 範囲外
+
+### 10.5 player は点ではなく半径を持たせる
+
+runtime の衝突判定では、
+player を map 上の 1 点として扱うと不自然になりやすい。
+
+起きやすい問題:
+
+- 壁へ少しめり込んで見える
+- 角を斜めにすり抜けやすい
+- 壁際で視点が不自然になる
+
+そのため `can_move_to()` は、
+player 中心だけではなく小さな半径つきで判定する。
+
+今回の設計では `PLAYER_RADIUS = 0.25` を採用する。
+
+考え方:
+
+- `next_x, cur_y` を先に判定する
+- `cur_x, next_y` を別に判定する
+- 各判定で `x ± radius`, `y ± radius` を見て、
+  `1` や space に触れないか確認する
+
+つまり本質は、
+「中心点が進めるか」ではなく
+「player の体積ぶんを含めても進めるか」を見ることである。
 
 ## 11. raycasting の考え方
 
@@ -516,6 +548,7 @@ new_y = old_x * sin(rot) + old_y * cos(rot)
 1. file / Makefile 骨格
 2. `cub3d.h` と構造体
 3. parser / validator
+   実 file では `parse_map.c` と `validate_map.c` を軸に進める
 4. MLX window と frame image
 5. 単色背景
 6. raycast だけで壁線

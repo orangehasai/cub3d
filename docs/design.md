@@ -2,138 +2,118 @@
 
 ## 1. 目的
 
-この設計書は `docs/subject.md` の mandatory part を実装するための土台を定義する。
+この設計書は `docs/subject.md` の mandatory part を、
+Ubuntu 22.04 + `minilibx-linux` 前提で実装するための土台を定義する。
 
-主目的は次の 3 点。
+狙いは次の 3 点である。
 
-1. `.cub` を安全に読み取り、設定とマップを正しく検証すること。
-2. MiniLibX 上で安定してレイキャスト描画を行うこと。
-3. Norm を崩さずに、責務分離された構成で実装できること。
+1. mandatory を通すために必要な責務分離だけを残す
+2. Norm を守れる粒度で file / function を分ける
+3. 実装量と保守性のバランスを取る
 
-本設計は mandatory を主対象とし、bonus は後付けしやすい構造だけ用意する。
+今回は Linux 固定で進めるため、以前の `mac -> Linux` 移行前提の抽象化は採用しない。
 
-## 2. スコープ
+## 2. 固定方針
 
-mandatory で扱う機能:
+- 実行環境は Ubuntu 22.04 + `minilibx-linux` とする
+- scope は mandatory のみとする
+- backend 差分吸収用の `platform` 層は作らない
+- key / event は Linux 前提で `X11/X.h`, `X11/keysym.h` をそのまま使う
+- texture は `.xpm` を前提にする
+- 描画は off-screen image に行い、最後に `mlx_put_image_to_window()` する
+- グローバル変数は使わない
+- map は file の見た目どおり保持し、検証用に別の正規化 grid を作る
+- 衝突判定は `can_move_to()` に集約する
+- movement / rotation は `delta time` ベースで更新する
 
-- `.cub` ファイルの読込
-- テクスチャ 4 方向の設定
-- 床色 / 天井色の設定
-- マップ検証
-- プレイヤー初期位置 / 向きの確定
-- レイキャストによる壁描画
-- キー入力による移動 / 回転
-- `ESC` / ウィンドウ close による正常終了
+## 3. 過剰にしないための判断
 
-mandatory では扱わない機能:
+今回あえてやらないこと:
 
-- minimap
-- door
-- sprite
-- mouse rotation
-- HUD
+- mac 対応
+- backend abstraction
+- bonus のための先回り実装
+- public / private header の細分化
+- module を増やしすぎる分割
 
-## 3. 設計方針
+今回残すこと:
 
-- グローバル変数は使わない。
-- `parse`, `validate`, `init`, `render`, `input`, `shutdown` を分離する。
-- `.cub` は「読み込み」と「意味解釈」を分ける。まず生の行配列を作り、その後に識別子解析と map 解析を行う。
-- map は「見た目どおりに保持」し、検証時だけ長方形に正規化する。
-- 描画は毎フレーム off-screen image に描いてから `mlx_put_image_to_window` する。
-- エラー時は必ず `"Error\n"` と明示的メッセージを返し、途中まで確保した資源も解放する。
-- 開発は macOS で進め、最終確認は Linux で行う前提にする。
-- macOS / Linux 差分は platform 層へ隔離し、parser / validator /
-  raycast core は共通 code として保つ。
+- `parse`, `validate`, `init`, `render`, `input`, `cleanup` の責務分離
+- map 閉包判定のための padding grid + flood fill
+- raycast 計算状態を構造体へ寄せる設計
+- cleanup の逆順解放
 
-### 3.1 Norm 反映方針
+この設計は「最小コード」ではなく、
+「mandatory を安定して通しやすい最小限の整理」を狙う。
 
-- すべての関数は 25 行以内を前提に分割する。
-- 1 関数あたりのローカル変数は 5 個以内を前提にする。
-- 1 関数あたりの引数は 4 個以内を前提にする。
-- `for`, `do...while`, `switch`, `case`, 三項演算子は使わない。
-- 1 `.c` ファイルあたりの関数定義は 5 個以内に収める。
-- `struct` / `typedef` / `enum` の定義はすべて header に置き、`.c` では宣言しない。
-- 関数内コメントに依存しない。必要なコメントは関数の外に英語で最小限だけ置く。
-- 変数宣言は関数先頭に寄せ、1 行 1 変数、宣言と初期化を分離する前提で設計する。
-- マクロは定数用途だけに限定し、ロジックの隠蔽には使わない。
-- すべての `.c` / `.h` は 42 header、適切な include guard、未使用 include 禁止を前提にする。
+## 4. モジュール構成
 
-### 3.2 Platform 分離方針
+### 4.1 module
 
-- common code は backend 固有の header を直接参照しない。
-- keycode, event, mask, close handling, display cleanup の差分は
-  `platform` module に閉じ込める。
-- common code は `KEY_*`, `EVENT_*` のような project 側の定数だけを見る。
-- hook 登録は `platform_bind_hooks()` のような薄い関数へ集約する。
-- backend 生 keycode を `KEY_*` へ正規化する責務も `platform` 側へ寄せる。
-- MLX の共通 subset のみを使い、local mac と final Linux で API 差分を
-  ほぼ出さない。
-- texture 形式は mac / Linux の共通運用を優先して `.xpm` を前提にする。
-
-## 4. 全体構成
-
-### 4.1 モジュール
-
-- `app`
-  - 全体状態の保持
-  - 初期化、メインループ、終了処理
+- `main`
+  - 引数検証
+  - 全体初期化呼び出し
+  - loop 開始
+- `init`
+  - game 構造体初期化
+  - MLX 初期化
+  - texture 読み込み
+  - 終了処理
 - `parse`
-  - ファイル読込
-  - 識別子ごとの値抽出
-  - raw map 行の収集
+  - file 読み込み
+  - texture / color / map 解析
 - `validate`
-  - 設定値の重複 / 欠落確認
-  - 色範囲確認
-  - map 文字集合確認
-  - spawn 数確認
-  - map 閉包判定
+  - map 文字検証
+  - spawn 検証
+  - 閉包判定
 - `render`
-  - frame buffer の塗りつぶし
-  - レイキャスト
-  - テクスチャサンプリング
+  - frame 背景塗り
+  - raycast
+  - texture sampling
 - `input`
-  - キー状態管理
-  - 移動 / 回転の更新
-- `platform`
-  - backend ごとの差分吸収
-  - event / key constant の定義
-  - hook 登録
-  - MLX 終了処理差分
-- `util`
-  - エラー出力
-  - 解放補助
-  - 小さな共通関数
+  - key press / release
+  - movement / rotation
+  - loop update
+- `utils`
+  - error 出力
+  - free 補助
+  - 文字列補助
 
 ### 4.2 依存方向
 
-依存は次の一方向を基本とする。
+依存は次の方向だけにする。
 
 ```text
 main
-  -> app
-    -> parse
-    -> validate
-    -> render
-    -> input
-    -> platform
-    -> util
+  -> init
+  -> parse
+  -> validate
+  -> render
+  -> input
+  -> utils
 ```
 
-`render` が `parse` に依存しないように、実行時に必要な値は `scene` / `player` / `app` に集約する。
-`input` と `app` は `platform` の公開 API は使うが、backend header には依存しない。
+`render` が `parse` の内部事情を知らないように、
+必要な情報は `t_game`, `t_map`, `t_player`, `t_img` に集約する。
 
-### 4.3 Norm 制約からの分割戦略
+## 5. Norm 前提の分割方針
 
-- parser は「ファイル読込」「行走査」「識別子解釈」「map 収集」に分割する。
-- validator は「文字検証」「spawn 検証」「閉包判定」に分割する。
-- raycast は「ray 初期化」「DDA 前進」「当たり判定後の計算」「texture 選択」「列描画」に分割する。
-- input 更新は「delta time 更新」「前後移動」「左右移動」「回転」に分割する。
-- platform 差分は「定数」「hook」「cleanup」に分割し、common 処理へ混ぜない。
-- ローカル変数数を抑えるため、中間状態は専用構造体に退避する。
+- 関数は 25 行以内
+- 引数は 4 個以内
+- ローカル変数は 5 個以内
+- `for`, `switch`, `do...while`, 三項演算子は使わない
+- 1 `.c` file の関数定義は 5 個以内
 
-## 5. データ構造
+そのため、
 
-### 5.1 設定系
+- parser は `read_file`, `parse_elements`, `parse_map`, `validate_map` に分ける
+- render は `render_frame`, `raycast`, `texture_sample` に分ける
+- input は `hook`, `move` に分ける
+- 1 列分の ray 状態は `t_ray` にまとめる
+
+## 6. データ構造
+
+### 6.1 image / color
 
 ```c
 typedef struct s_rgb
@@ -144,9 +124,8 @@ typedef struct s_rgb
 	int	value;
 }	t_rgb;
 
-typedef struct s_texture
+typedef struct s_img
 {
-	char	*path;
 	void	*img;
 	char	*addr;
 	int		bpp;
@@ -154,43 +133,39 @@ typedef struct s_texture
 	int		endian;
 	int		width;
 	int		height;
-}	t_texture;
+}	t_img;
+```
 
+### 6.2 map / scene
+
+```c
 typedef struct s_map
 {
 	char	**rows;
+	char	**grid;
 	int		width;
 	int		height;
 }	t_map;
 
 typedef struct s_scene
 {
-	t_texture	north;
-	t_texture	south;
-	t_texture	west;
-	t_texture	east;
-	t_rgb		floor;
-	t_rgb		ceiling;
-	t_map		map;
+	char	*no_path;
+	char	*so_path;
+	char	*we_path;
+	char	*ea_path;
+	t_rgb	floor;
+	t_rgb	ceiling;
+	t_map	map;
 }	t_scene;
-
-typedef struct s_parse_ctx
-{
-	char	**lines;
-	int		index;
-	int		map_started;
-	int		map_rows;
-}	t_parse_ctx;
 ```
 
 設計意図:
 
-- `t_texture` は path と MLX image 実体を両方持つ。parse 完了時は path だけが埋まり、MLX 初期化後に image をロードする。
-- `t_map.rows` は file の見た目を保った raw row を保持する。
-- `t_rgb.value` は `0xRRGGBB` に変換した値を持たせ、描画時の再計算を避ける。
-- `t_parse_ctx` は parser の走査状態を 1 つに束ね、引数数とローカル変数数を抑える。
+- `rows` は file の見た目を保持する
+- `grid` は padding 付き長方形 map として保持する
+- runtime の衝突判定も `grid` を使う
 
-### 5.2 プレイヤー / 実行時状態
+### 6.3 player / input / time
 
 ```c
 typedef struct s_player
@@ -202,17 +177,6 @@ typedef struct s_player
 	double	plane_x;
 	double	plane_y;
 }	t_player;
-
-typedef struct s_image
-{
-	void	*img;
-	char	*addr;
-	int		bpp;
-	int		line_len;
-	int		endian;
-	int		width;
-	int		height;
-}	t_image;
 
 typedef struct s_keys
 {
@@ -229,9 +193,14 @@ typedef struct s_time
 	long	prev_usec;
 	double	delta_sec;
 }	t_time;
+```
 
+### 6.4 ray
+
+```c
 typedef struct s_ray
 {
+	int		x;
 	int		map_x;
 	int		map_y;
 	int		step_x;
@@ -245,501 +214,362 @@ typedef struct s_ray
 	double	delta_dist_x;
 	double	delta_dist_y;
 	double	perp_wall_dist;
+	double	wall_x;
+	int		line_height;
+	int		draw_start;
+	int		draw_end;
+	int		tex_x;
 }	t_ray;
+```
 
-typedef struct s_draw
-{
-	int			line_height;
-	int			draw_start;
-	int			draw_end;
-	int			tex_x;
-	double		tex_pos;
-	double		tex_step;
-	t_texture	*texture;
-}	t_draw;
+### 6.5 game
 
-typedef struct s_app
+```c
+typedef struct s_game
 {
 	void		*mlx;
 	void		*win;
-	t_image		frame;
+	t_img		frame;
+	t_img		no_tex;
+	t_img		so_tex;
+	t_img		we_tex;
+	t_img		ea_tex;
 	t_scene		scene;
 	t_player	player;
 	t_keys		keys;
 	t_time		time;
-	int			screen_width;
-	int			screen_height;
-	int			initialized_window;
-}	t_app;
+	int			running;
+}	t_game;
 ```
 
-設計意図:
+## 7. header 方針
 
-- `player` は map cell 座標ではなく実数座標を持つ。移動と DDA の両方で扱いやすい。
-- 視線方向は `dir_*`、視野面は `plane_*` で持つ。回転は 2D 回転行列で更新する。
-- `keys` は press / release を状態化し、`loop_hook` で移動量に変換する。
-- `t_time` は delta time 計算を専用化し、移動更新関数の責務を軽くする。
-- `t_ray` は 1 列分の DDA 状態をまとめ、raycast 関数の変数数超過を防ぐ。
-- `t_draw` は 描画区間と texture 参照をまとめ、列描画処理を分割しやすくする。
-- backend 差分に関する値は `t_app` へ散らさず、可能な限り `platform` 側で閉じる。
+今回の mandatory では header は `include/cub3d.h` の 1 枚を基本とする。
 
-## 6. 初期化シーケンス
+ここへ置くもの:
+
+- 必要な system include
+- MLX include
+- X11 event / keysym include
+- 定数マクロ
+- `struct` 定義
+- prototype
+
+分割しすぎない代わりに、
+未使用 include と循環依存を作らないことを重視する。
+
+## 8. 初期化シーケンス
 
 ```text
 main
   -> 引数検証
-  -> app 構造体 zero initialize
+  -> t_game zero initialize
   -> .cub 読込
-  -> scene parse
-  -> scene validate
+  -> element parse
+  -> map parse
+  -> map validate
   -> player 初期化
-  -> mlx 初期化
-  -> window 作成
+  -> mlx_init
+  -> mlx_new_window
   -> frame image 作成
   -> texture image 読込
   -> hook 登録
-  -> loop 開始
+  -> mlx_loop_hook 登録
+  -> mlx_loop
 ```
 
-ポイント:
+要点:
 
-- parse / validate を MLX 初期化前に済ませる。設定ファイルが壊れているだけでウィンドウを開かない。
-- texture path の存在確認は parse / validate で `open()` により行う。
-- 実際の画像ロードは MLX 初期化後に行う。
-- local mac / final Linux のどちらでも、この順序自体は変えない。
+- parse / validate が通るまで window を開かない
+- texture path の妥当性確認は parse 時に行う
+- 実画像の読込は MLX 初期化後に行う
 
-## 7. `.cub` パース設計
+## 9. `.cub` 解析設計
 
-### 7.1 入口
+### 9.1 読み込み
 
-- 引数は 1 個のみ受け取る。
-- 拡張子が `.cub` でなければ即エラー。
-- `open` + `read` でファイル全体を読み込む。
-- 行分割して `char **lines` を得る。
+- 引数は 1 個のみ
+- 拡張子が `.cub` でなければエラー
+- `open` + `read` で全文を読み込む
+- 行分割して `char **lines` を作る
 
-`get_next_line` 前提にはしない。subject の許可関数だけで完結させる。
+### 9.2 element 解析
 
-### 7.2 解析ルール
+対象:
 
-解析対象は 2 種類:
+- `NO`
+- `SO`
+- `WE`
+- `EA`
+- `F`
+- `C`
 
-- 識別子行
-  - `NO`, `SO`, `WE`, `EA`, `F`, `C`
-- map 行
-  - 文字集合が ` 01NSEW` のみで構成される行
+規則:
 
-走査ルール:
+- map より前だけで受理する
+- 順不同でよい
+- 重複はエラー
+- 欠落はエラー
 
-1. 空行は map 開始前なら無視してよい。
-2. 識別子は map 開始前のみ受理する。
-3. 最初の map 行を見つけたら map section 開始とみなす。
-4. map 開始後に識別子行が来たらエラー。
-5. map 開始後に空行が来たらエラーとする。
-6. EOF までの map 行をそのまま保存する。
+### 9.3 map 解析
 
-この方針にする理由:
+規則:
 
-- subject で map は最後とされているため。
-- map 内の空行を許すと、閉包判定や見た目どおり解釈が曖昧になるため。
+- map は file の最後
+- map 開始後の空行はエラー
+- map 行は見た目どおり保存する
+- space も map の一部として保存する
 
-### 7.3 識別子ごとの処理
+## 10. validate 設計
 
-Norm 対応のため、parser は次のように細かく分ける。
-
-- `read_cub_file`
-- `split_lines`
-- `scan_scene_lines`
-- `parse_identifier_line`
-- `append_map_row`
-
-各関数は `t_parse_ctx` と `t_scene` を受け取り、引数 4 個以内を維持する。
-
-#### texture
-
-- `NO`, `SO`, `WE`, `EA` は 1 回ずつ必須。
-- 値は path 文字列。
-- 前後の空白を除去したうえで、空文字列はエラー。
-- `open(path, O_RDONLY)` できない場合はエラー。
-
-#### color
-
-- `F`, `C` は 1 回ずつ必須。
-- 形式は `R,G,B`。
-- 各値は 0 から 255 の整数。
-- 余計なカンマ、空要素、文字混入はエラー。
-- parse 後に `value = (r << 16) | (g << 8) | b` を計算する。
-
-### 7.4 map 保存
-
-- raw 行をそのまま `scene.map.rows` に保持する。
-- `scene.map.width` は最長行長。
-- `scene.map.height` は行数。
-- 短い行は保存時に埋めず、検証用の別バッファ作成時に space 埋めする。
-
-## 8. map 検証設計
-
-### 8.1 文字検証
+### 10.1 文字検証
 
 許可文字:
 
-- `1`: wall
-- `0`: empty
-- `N`, `S`, `E`, `W`: spawn
-- ` `: void / padding
+- `0`
+- `1`
+- `N`
+- `S`
+- `E`
+- `W`
+- space
 
-不許可文字が 1 つでもあればエラー。
+### 10.2 spawn 検証
 
-### 8.2 spawn 検証
+- spawn はちょうど 1 個
+- spawn 文字から player 初期向きを決める
 
-- spawn はちょうど 1 個必須。
-- 見つけたら `player.x = col + 0.5`, `player.y = row + 0.5` とする。
-- 向きに応じて `dir` / `plane` を初期化する。
+初期方向:
 
-初期値:
+- `N`: `dir = (0, -1)`, `plane = (0.66, 0)`
+- `S`: `dir = (0, 1)`, `plane = (-0.66, 0)`
+- `E`: `dir = (1, 0)`, `plane = (0, 0.66)`
+- `W`: `dir = (-1, 0)`, `plane = (0, -0.66)`
 
-- `N`: `dir=(0,-1)`, `plane=(0.66,0)`
-- `S`: `dir=(0,1)`, `plane=(-0.66,0)`
-- `E`: `dir=(1,0)`, `plane=(0,0.66)`
-- `W`: `dir=(-1,0)`, `plane=(0,-0.66)`
+### 10.3 閉包判定
 
-`0.66` は Wolfenstein 系で一般的な視野角設定を想定した値とする。
+最も壊れにくい方法として、
+padding 付き長方形 `grid` を作って flood fill で検証する。
 
-### 8.3 閉包判定
+手順:
 
-検証用に長方形 map を作る。
+1. raw row の最大幅を求める
+2. 足りない部分を space で埋めた `grid` を作る
+3. 外周側または space 連結側から flood fill する
+4. `0` または spawn に触れたら open map と判定する
 
-```text
-height + 2
-width  + 2
-```
+この方法を採用する理由:
 
-ルール:
+- map の形がいびつでも扱いやすい
+- space を含む map を正しく弾きやすい
+- runtime の `can_move_to()` にも同じ `grid` を流用できる
 
-- 外周はすべて space で埋める。
-- 元 map は 1 マス内側にコピーする。
-- 短い行の足りない部分も space で埋める。
+## 11. 描画設計
 
-判定方法:
+### 11.1 基本方針
 
-1. 外側 `(0, 0)` から space 領域を flood fill する。
-2. flood fill 中、隣接先に `0` または spawn が見えたら map は開いているとみなしてエラー。
-3. すべて探索して問題なければ閉じている。
+- 毎 frame、まず背景を塗る
+- その後、画面の全列に対して raycast を行う
+- 最後に `mlx_put_image_to_window()` する
 
-この方法の利点:
+### 11.2 frame image
 
-- 行長が不揃いでも扱いやすい。
-- subject が「space も map の一部」としている点に自然に対応できる。
+- 起動時に 1 枚だけ `frame image` を作る
+- 毎 frame その buffer を上書きする
+- `mlx_pixel_put()` は使わない
 
-Norm 対応のため、閉包判定も次の関数に分割する。
+### 11.3 raycast
 
-- `build_closed_grid`
-- `copy_map_to_grid`
-- `flood_void`
-- `check_map_closed`
+1 列ごとに次を行う。
 
-`flood_void` は再帰または小さな helper 群で実装し、1 関数内に判定ロジックを詰め込まない。
+1. `camera_x` を求める
+2. `ray_dir` を作る
+3. DDA で最初の壁に当たるまで進む
+4. `perp_wall_dist` を求める
+5. `line_height`, `draw_start`, `draw_end` を求める
+6. 壁面方向から texture を選ぶ
+7. `tex_x` を求めて 1 列描く
 
-## 9. 描画設計
+### 11.4 texture
 
-### 9.1 描画単位
+- subject 上は path 指定だけだが、実装では `.xpm` に固定する
+- texture は `mlx_xpm_file_to_image()` で読む
+- 各 texture でも `addr`, `bpp`, `line_len`, `endian` を持つ
 
-毎フレーム:
+## 12. 入力設計
 
-1. frame image 全体の上半分を ceiling 色で塗る。
-2. 下半分を floor 色で塗る。
-3. 各 x 列に対して raycast を行う。
-4. 壁ストライプを texture 付きで上書きする。
-5. `mlx_put_image_to_window()` で表示する。
+### 12.1 hook
 
-### 9.2 レイキャスト
-
-各列 `x` で次を行う。
-
-1. `camera_x = 2 * x / screen_width - 1`
-2. `ray_dir = dir + plane * camera_x`
-3. `map_x = (int)player.x`, `map_y = (int)player.y`
-4. `delta_dist_x`, `delta_dist_y` を計算
-5. `step_x`, `step_y`, `side_dist_x`, `side_dist_y` を計算
-6. DDA で `1` に当たるまで進める
-7. hit 面が x side か y side かを記録
-8. `perp_wall_dist` を求めて fish-eye を防ぐ
-9. `line_height = screen_height / perp_wall_dist`
-10. 描画開始 / 終了 y を算出
-11. 壁の向きに応じた texture を選択
-12. texture x 座標と pixel step を計算して描画
-
-Norm 対応のため、1 列の描画は次の単位まで分割する。
-
-- `init_ray`
-- `step_ray_until_hit`
-- `finish_ray`
-- `select_wall_texture`
-- `draw_wall_column`
-
-`t_ray` と `t_draw` を使い、各関数のローカル変数を 5 個以内に抑える。
-
-### 9.3 texture 選択
-
-判定条件:
-
-- x side に当たった
-  - `ray_dir_x > 0` なら west 面
-  - `ray_dir_x < 0` なら east 面
-- y side に当たった
-  - `ray_dir_y > 0` なら north 面
-  - `ray_dir_y < 0` なら south 面
-
-注記:
-
-- 実装時は DDA の `step_x`, `step_y` を使って最終判定した方がバグりにくい。
-- 設計上は「どの面にぶつかったか」で texture を切り替えることが本質。
-
-### 9.4 texture sampling
-
-- `wall_x` で当たり面の小数位置を求める。
-- `tex_x` を texture 幅に射影する。
-- 列描画中は `tex_pos` を加算しながら `tex_y` を更新する。
-- 1 pixel 書き込みは frame image の address に直接行う。
-
-この方針により `mlx_pixel_put` は使わない。
-
-## 10. 入力設計
-
-### 10.1 イベント
+mandatory では次を扱う。
 
 - `KeyPress`
 - `KeyRelease`
 - `DestroyNotify`
-- `LoopHook`
+- `Expose`
+- `mlx_loop_hook`
 
-common code では backend 生定数を直接使わない。
-`platform.h` 側で `KEY_ESC`, `KEY_W`, `EVENT_KEY_PRESS` などへ寄せる。
-backend 生 event / keycode は platform 側で project 定数へ変換し、
-`input` module は正規化後の値だけを扱う。
+Linux 版 MLX では `mlx_key_hook()` が `KeyRelease` に寄るため、
+入力は `mlx_hook()` を主に使う。
 
-### 10.2 移動
+### 12.2 key state
 
-毎フレーム、押下中キーから移動量を計算する。
+- `on_key_press` で key state を 1 にする
+- `on_key_release` で key state を 0 にする
+- `on_loop` で state を見て movement / rotation を更新する
+
+### 12.3 movement
 
 - `W`: 前進
 - `S`: 後退
 - `A`: 左平行移動
 - `D`: 右平行移動
-- `LEFT`: 左回転
-- `RIGHT`: 右回転
+- `Left`: 左回転
+- `Right`: 右回転
 
-速度は固定値ではなく delta time 依存にする。
+更新量:
 
 ```text
 move_step = MOVE_SPEED * delta_sec
-rot_step  = ROT_SPEED * delta_sec
+rot_step = ROT_SPEED * delta_sec
 ```
 
-これにより環境差で移動速度が極端に変わるのを防ぐ。
+### 12.4 衝突判定
 
-Norm 対応のため、入力更新は次の関数に分割する。
+`can_move_to(x, y)` を用意し、
+次の cell へ進めるかどうかを 1 箇所で判定する。
 
-- `update_delta_time`
-- `move_forward_backward`
-- `move_left_right`
-- `rotate_left_right`
-- `update_player`
+拒否対象:
 
-### 10.3 衝突判定
+- `1`
+- space
+- map 範囲外
 
-mandatory 実装では `can_move_to(x, y)` を通し、
-少なくとも `1` と padding space への侵入を禁止する。
+## 13. エラー処理と cleanup
 
-この判定を 1 箇所に隔離する理由は次の通り。
-
-- movement 実装から map 判定詳細を切り離せる
-- 仕様調整が必要でも差分を局所化できる
-- mac / Linux で挙動差を出さずに済む
-
-## 11. 画像ロード設計
-
-- mac / Linux 共通 subset を優先し、初期実装では
-  `mlx_xpm_file_to_image` を使う前提とする。
-- path は subject 上汎用だが、移行差分を増やさないため `.xpm` を採用する。
-- texture サイズは正方形である必要はないが、初期実装では同一サイズ想定の方が単純。
-- keycode や event は backend header 直書きではなく project 定数へ寄せる。
-- 画面サイズや移動速度のような固定値は大文字マクロまたは enum に寄せ、ロジックをマクロ化しない。
-
-ここも設計上の実装方針であり、subject 自体は path 形式しか制約していない。
-
-## 12. エラー処理と終了処理
-
-### 12.1 エラー出力
-
-統一形式:
+### 13.1 エラー形式
 
 ```text
 Error
-<explicit message>
+<message>
 ```
 
 方針:
 
-- stderr に出す。
-- deep な関数で `exit()` しない。
-- `int` 戻り値で失敗を上位に返し、最後に cleanup して終了する。
+- stderr 出力
+- deep な関数で `exit()` しない
+- 上位へ失敗を返し、最後にまとめて cleanup する
 
-### 12.2 cleanup 順序
-
-逆順で解放する。
+### 13.2 cleanup 順序
 
 1. frame image
-2. texture images
+2. texture image 4 枚
 3. window
-4. platform 固有の display / mlx cleanup
-5. map rows
-6. texture path
-7. その他動的確保領域
+4. `mlx_destroy_display(mlx)`
+5. `free(mlx)`
+6. map / path / lines など heap 領域
 
-部分初期化失敗に備え、各ポインタは `NULL` 初期化する。
+各 pointer は `NULL` 初期化し、
+部分初期化失敗でも同じ destroy 関数を通せるようにする。
 
-backend 差分:
-
-- macOS
-  - image / window を destroy して終了する
-- Linux
-  - 追加で `mlx_destroy_display()` と `free(mlx_ptr)` が必要になる
-
-## 13. 想定ファイル構成
+## 14. 想定 file 構成
 
 ```text
 include/
   cub3d.h
-  config.h
-  types.h
-  app.h
-  parse.h
-  validate.h
-  render.h
-  input.h
-  platform.h
-  error.h
 
 src/
   main.c
 
-  app/
-    init.c
-    run.c
-    destroy.c
+  init/
+    init_game.c
+    init_mlx.c
+    init_texture.c
+    destroy_game.c
 
   parse/
     read_file.c
-    split_lines.c
-    scan_scene.c
-    parse_scene.c
-    parse_texture.c
-    parse_color.c
+    parse_elements.c
     parse_map.c
-
-  validate/
-    validate_scene.c
     validate_map.c
-    build_grid.c
-    flood_fill.c
 
   render/
-    frame.c
-    ray_init.c
-    ray_step.c
-    ray_finish.c
-    texture.c
-    draw_column.c
+    render_frame.c
+    raycast.c
+    texture_sample.c
 
   input/
-    key_hook.c
-    key_state.c
-    update_time.c
-    loop_update.c
+    hook.c
     move.c
-    rotate.c
 
-  platform/
-    platform_keys.c
-    platform_hooks.c
-    platform_destroy.c
-
-  util/
+  utils/
     error.c
     free.c
     string.c
 ```
 
-補足:
+この構成にした理由:
 
-- `cub3d.h` は共通型と公開 API を最小限だけ集約する。
-- `types.h` にすべての `struct` / `typedef` を集約し、`.c` で型宣言しない。
-- `config.h` には定数マクロだけを置く。
-- `platform.h` は common code が参照してよい唯一の backend 境界とする。
-- header の相互依存を避けるため、必要に応じて前方宣言を使う。
-- 各 `.c` は最大 5 関数までを上限にする。
-- file 数は多いが、Norm の関数長制限と変数数制限を守りやすい。
+- mandatory に必要な責務は残る
+- file 数が過剰にならない
+- それでも Norm で関数を逃がせる
 
-## 14. 実装順序
+## 15. 実装順序
 
-1. 共通構造体とヘッダ作成
-2. platform 境界の作成
-3. エラー / cleanup 基盤作成
+1. T01: file 構成と Makefile
+2. `cub3d.h` と構造体定義
+3. error / cleanup 基盤
 4. `.cub` 読込
 5. texture / color / map parse
 6. map validate
 7. player 初期化
-8. mac で MLX window / image 初期化
-9. floor / ceiling の単色描画
-10. 壁線のみの raycast
-11. texture 付き raycast
-12. 入力と移動
-13. Linux backend 差分確認
-14. 異常系テスト
+8. MLX window / frame image 初期化
+9. texture image 読込
+10. 背景描画
+11. raycast
+12. input / movement
+13. Ubuntu VM で検証
+14. README / cleanup
 
-この順序にすると、常に「表示できる最小状態」を積み上げながら進められる。
+## 16. テスト観点
 
-実装中は各段階で `norminette` を回し、設計上の分割が実際に Norm に効いているか確認する。
+### 16.1 parser / validator
 
-## 15. テスト観点
-
-### 15.1 parser / validator
-
-- 拡張子が違う
-- ファイルが開けない
-- 識別子不足
-- 識別子重複
-- 色の数値範囲外
-- 色形式不正
-- texture path 不正
-- map が空
+- `.cub` 以外の拡張子
+- file open 失敗
+- texture 要素不足
+- texture 重複
+- color format error
+- color range error
+- invalid char
 - spawn 0 個 / 2 個以上
-- 不正文字混入
-- map の途中に空行
-- map が開いている
-- 行長が不揃い
-- space を含む map
+- open map
+- map 途中空行
 
-### 15.2 runtime
+### 16.2 render / input
 
-- mac local で起動と基本操作を確認できる
-- 起動直後に終了できる
-- 矢印回転が滑らか
-- `WASD` が想定通り動く
-- 窓 close でもリークなく終了
-- 長時間ループでもクラッシュしない
+- window が開く
+- 床と天井が塗られる
+- 4 方向で texture が変わる
+- `WASD` で移動できる
+- 左右矢印で回転できる
+- `ESC` で終了できる
+- close button で終了できる
+- minimize / 復帰で破綻しない
 
-確認方針:
+### 16.3 最終確認
 
-- 反復中の動作確認は mac local を優先する
-- parser / validator / build の互換確認は `linux()` でも行う
-- 最終確認は `linux()` または Linux 実環境を基準にする
+- Ubuntu VM 上で `make`
+- 正常 map で起動
+- 異常 map で `"Error\n"` を返す
+- `norminette`
+- 確認後に `make clean`, `make fclean`
 
-## 16. 固定判断
+## 17. 最終判断
 
-現時点の設計では次を固定判断とする。
+この設計で固定する判断は次の 5 つである。
 
-1. local 開発は macOS、最終確認は Linux とする
-2. backend 差分は `platform` 層へ隔離する
-3. movement は `can_move_to()` 経由で wall / padding を拒否する
-4. texture asset は `.xpm` を前提にする
+1. Linux 専用設計にする
+2. `platform` 層は作らない
+3. header は `cub3d.h` 1 枚を基本にする
+4. `.xpm` と `mlx_hook()` 前提で進める
+5. map は `rows` と `grid` の 2 表現を持つ

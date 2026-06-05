@@ -6,7 +6,7 @@
 /*   By: stonegaw <stonegaw@student.42tokyo.jp>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 18:00:46 by stonegaw          #+#    #+#             */
-/*   Updated: 2026/06/05 23:29:33 by stonegaw         ###   ########.fr       */
+/*   Updated: 2026/06/05 23:56:44 by stonegaw         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -95,7 +95,7 @@ static int	parse_element(t_scene *scene, const char *line, int *matched)
 	return (0);
 }
 
-int	parse_elements(t_scene *scene, char **lines, int *map_start)
+int	parse_elements(t_scene *scene, char **lines, int *map_start_index)
 {
 	const char	*line;
 	int			i;
@@ -114,7 +114,7 @@ int	parse_elements(t_scene *scene, char **lines, int *map_start)
 		else
 			i++;
 	}
-	*map_start = i;
+	*map_start_index = i;
 	if (!scene->no_path || !scene->so_path || !scene->we_path
 		|| !scene->ea_path)
 		return (print_error("missing texture identifier"));

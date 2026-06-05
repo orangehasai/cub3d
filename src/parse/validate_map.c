@@ -12,6 +12,8 @@
 
 #include "cub3d.h"
 
+int			validate_map_closed(t_map *map);
+
 static int	is_valid_map_char(char cell)
 {
 	return (cell == '0' || cell == '1' || cell == 'N' || cell == 'S'
@@ -42,7 +44,7 @@ static void	set_player_direction(t_player *player, char spawn)
 	}
 }
 
-static int	set_player_spawn(t_game *game, int x, int y, char spawn)
+static void	set_player_spawn(t_game *game, int x, int y, char spawn)
 {
 	game->player.x = x + 0.5;
 	game->player.y = y + 0.5;
@@ -51,7 +53,6 @@ static int	set_player_spawn(t_game *game, int x, int y, char spawn)
 	game->player.plane_x = 0.0;
 	game->player.plane_y = 0.0;
 	set_player_direction(&game->player, spawn);
-	return (0);
 }
 
 static int	validate_row(t_game *game, char *row, int y, int *spawn_count)
@@ -94,5 +95,5 @@ int	validate_map(t_game *game)
 	}
 	if (spawn_count == 0)
 		return (print_error("missing player spawn"));
-	return (0);
+	return (validate_map_closed(map));
 }

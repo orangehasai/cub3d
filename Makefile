@@ -20,6 +20,7 @@ SRC = src/main.c \
 	src/parse/parse_elements.c \
 	src/parse/parse_map.c \
 	src/parse/validate_map.c \
+	src/parse/validate_grid.c \
 	src/render/render_frame.c \
 	src/render/raycast.c \
 	src/render/texture_sample.c \

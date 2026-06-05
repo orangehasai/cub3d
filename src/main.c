@@ -54,6 +54,8 @@ static int	run_game(t_game *game, const char *path)
 		return (1);
 	}
 	free_strs(lines);
+	if (validate_map(game))
+		return (1);
 	return (0);
 }
 

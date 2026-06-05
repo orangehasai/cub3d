@@ -55,6 +55,7 @@ clean:
 	@if [ -f $(MLX_DIR)/Makefile.gen ]; then \
 		$(MAKE) -C $(MLX_DIR) clean; \
 	fi
+	$(RM) $(MLX_DIR)/Makefile.gen $(MLX_DIR)/test/Makefile.gen
 
 fclean: clean
 	$(RM) $(NAME)

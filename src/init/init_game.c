@@ -11,3 +11,11 @@
 /* ************************************************************************** */
 
 #include "cub3d.h"
+
+void	init_game(t_game *game)
+{
+	if (!game)
+		return ;
+	ft_bzero(game, sizeof(*game));
+	game->running = 1;
+}

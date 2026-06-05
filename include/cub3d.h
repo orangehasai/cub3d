@@ -6,7 +6,7 @@
 /*   By: stonegaw <stonegaw@student.42tokyo.jp>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 17:59:41 by stonegaw          #+#    #+#             */
-/*   Updated: 2026/06/05 18:12:42 by stonegaw         ###   ########.fr       */
+/*   Updated: 2026/06/05 18:44:15 by stonegaw         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -115,7 +115,7 @@ typedef struct s_ray
 	double		perp_wall_dist;
 	double		wall_x;
 	int			line_height;
-	player int	draw_start;
+	int			draw_start;
 	int			draw_end;
 	int			tex_x;
 }				t_ray;
@@ -130,7 +130,7 @@ typedef struct s_game
 	t_img		we_tex;
 	t_img		ea_tex;
 	t_scene		scene;
-	t_player;
+	t_player	player;
 	t_keys		keys;
 	t_time		time;
 	int			running;

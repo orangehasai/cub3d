@@ -141,7 +141,7 @@ int				init_mlx(t_game *game);
 int				init_textures(t_game *game);
 void			destroy_game(t_game *game);
 
-char			*read_file(const char *path);
+int				read_file(const char *path, char ***lines);
 int				parse_elements(t_scene *scene, char **lines, int *map_start);
 int				parse_map(t_scene *scene, char **lines, int map_start);
 int				validate_map(t_game *game);

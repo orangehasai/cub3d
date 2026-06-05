@@ -37,8 +37,12 @@ static int	validate_args(int argc, char **argv)
 
 static int	run_game(t_game *game, const char *path)
 {
+	char	**lines;
+
 	init_game(game);
-	(void)path;
+	if (read_file(path, &lines))
+		return (1);
+	free_strs(lines);
 	return (0);
 }
 

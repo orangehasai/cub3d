@@ -12,7 +12,47 @@
 
 #include "cub3d.h"
 
-int	main(void)
+static int	has_cub_extension(const char *path)
 {
+	size_t	len;
+
+	if (!path)
+		return (0);
+	len = ft_strlen(path);
+	if (len <= 4)
+		return (0);
+	if (ft_strncmp(path + len - 4, ".cub", 4) != 0)
+		return (0);
+	return (1);
+}
+
+static int	validate_args(int argc, char **argv)
+{
+	if (argc != 2)
+		return (print_error("usage: ./cub3D <map.cub>"));
+	if (!has_cub_extension(argv[1]))
+		return (print_error("map must use the .cub extension"));
+	return (0);
+}
+
+static int	run_game(t_game *game, const char *path)
+{
+	init_game(game);
+	(void)path;
+	return (0);
+}
+
+int	main(int argc, char **argv)
+{
+	t_game	game;
+
+	if (validate_args(argc, argv))
+		return (1);
+	if (run_game(&game, argv[1]))
+	{
+		destroy_game(&game);
+		return (1);
+	}
+	destroy_game(&game);
 	return (0);
 }

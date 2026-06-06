@@ -1,7 +1,7 @@
 NAME = cub3D
 CC = cc
 RM = rm -f
-CFLAGS = -Wall -Wextra -Werror
+CFLAGS = -Wall -Wextra -Werror -std=gnu17
 CPPFLAGS = -Iinclude -Ilibft -Iminilibx-linux
 MLX_LIBS = -lXext -lX11 -lm -lbsd
 OBJ_DIR = obj

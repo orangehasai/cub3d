@@ -54,8 +54,6 @@ static int	run_game(t_game *game, const char *path)
 		return (1);
 	if (init_textures(game))
 		return (1);
-	if (render_frame(game))
-		return (1);
 	if (register_hooks(game))
 		return (1);
 	return (0);
@@ -72,6 +70,7 @@ int	main(int argc, char **argv)
 		destroy_game(&game);
 		return (1);
 	}
+	mlx_loop(game.mlx);
 	destroy_game(&game);
 	return (0);
 }

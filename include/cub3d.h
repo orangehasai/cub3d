@@ -32,6 +32,7 @@
 #define FOV_SCALE 0.66
 #define MOVE_SPEED 3.0
 #define ROT_SPEED 2.0
+#define PLAYER_RADIUS 0.25
 
 typedef struct s_rgb
 {

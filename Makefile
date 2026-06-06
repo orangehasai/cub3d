@@ -26,6 +26,8 @@ SRC = src/main.c \
 	src/render/raycast.c \
 	src/render/texture_sample.c \
 	src/input/hook.c \
+	src/input/loop.c \
+	src/input/collision.c \
 	src/input/move.c \
 	src/utils/error.c \
 	src/utils/free.c \

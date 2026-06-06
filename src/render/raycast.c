@@ -80,26 +80,23 @@ void	raycast_column(t_game *game, int x)
 {
 	t_ray	ray;
 	int		steps;
-	int		hit;
 
 	ft_bzero(&ray, sizeof(ray));
 	init_ray_dir(game, &ray, x);
 	init_ray_delta(&ray);
 	init_ray_step(game, &ray);
 	steps = 0;
-	hit = 0;
 	while (steps++ < game->scene.map.width * game->scene.map.height)
 	{
 		step_ray(&ray);
 		if (ray.map_x < 0 || ray.map_y < 0 || ray.map_x >= game->scene.map.width
 			|| ray.map_y >= game->scene.map.height)
-			break ;
+			return ;
 		if (game->scene.map.grid[ray.map_y][ray.map_x] == '1')
 		{
-			hit = 1;
-			break ;
+			prepare_texture_sample(game, &ray);
+			draw_wall_column(game, &ray);
+			return ;
 		}
 	}
-	if (hit)
-		prepare_texture_sample(game, &ray);
 }

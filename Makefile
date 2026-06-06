@@ -22,6 +22,7 @@ SRC = src/main.c \
 	src/parse/validate_map.c \
 	src/parse/validate_grid.c \
 	src/render/render_frame.c \
+	src/render/draw_wall.c \
 	src/render/raycast.c \
 	src/render/texture_sample.c \
 	src/input/hook.c \

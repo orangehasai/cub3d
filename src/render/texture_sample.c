@@ -51,8 +51,6 @@ static t_img	*select_wall_texture(t_game *game, t_ray *ray)
 
 void	prepare_texture_sample(t_game *game, t_ray *ray)
 {
-	t_img	*tex;
-
 	ray->perp_wall_dist = get_perp_wall_dist(game, ray);
 	set_draw_range(ray);
 	if (ray->side == 0)
@@ -60,11 +58,11 @@ void	prepare_texture_sample(t_game *game, t_ray *ray)
 	else
 		ray->wall_x = game->player.x + ray->perp_wall_dist * ray->ray_dir_x;
 	ray->wall_x -= floor(ray->wall_x);
-	tex = select_wall_texture(game, ray);
-	ray->tex_x = (int)(ray->wall_x * tex->width);
+	ray->tex = select_wall_texture(game, ray);
+	ray->tex_x = (int)(ray->wall_x * ray->tex->width);
 	if ((ray->side == 0 && ray->ray_dir_x > 0.0) || (ray->side == 1
 			&& ray->ray_dir_y < 0.0))
-		ray->tex_x = tex->width - ray->tex_x - 1;
+		ray->tex_x = ray->tex->width - ray->tex_x - 1;
 }
 
 int	get_texel(t_img *tex, int x, int y)

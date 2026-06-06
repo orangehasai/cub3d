@@ -118,6 +118,7 @@ typedef struct s_ray
 	int draw_start;
 	int draw_end;
 	int tex_x;
+	t_img *tex;
 } t_ray;
 
 typedef struct s_game
@@ -148,6 +149,7 @@ int validate_map(t_game *game);
 
 int		render_frame(t_game *game);
 void	put_pixel(t_img *img, int x, int y, int color);
+void	draw_wall_column(t_game *game, t_ray *ray);
 void	raycast_column(t_game *game, int x);
 void	prepare_texture_sample(t_game *game, t_ray *ray);
 int		get_texel(t_img *tex, int x, int y);

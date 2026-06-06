@@ -51,7 +51,15 @@ static void	fill_background(t_game *game)
 
 int	render_frame(t_game *game)
 {
+	int	x;
+
 	fill_background(game);
+	x = 0;
+	while (x < game->frame.width)
+	{
+		raycast_column(game, x);
+		x++;
+	}
 	mlx_put_image_to_window(game->mlx, game->win, game->frame.img, 0, 0);
 	return (0);
 }

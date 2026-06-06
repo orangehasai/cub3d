@@ -1,0 +1,14 @@
+   C 80,120,170
+
+EA ./texture/watari.xpm
+NO	./texture/hitoshi.xpm
+
+F 16,20,26
+WE ./texture/taro.xpm
+SO	./texture/noroyama.xpm
+
+    11111111
+    1N000001
+1111110111
+1000000001
+1111111111

@@ -154,13 +154,14 @@ void	raycast_column(t_game *game, int x);
 void	prepare_texture_sample(t_game *game, t_ray *ray);
 int		get_texel(t_img *tex, int x, int y);
 
-int on_key_press(int keycode, t_game *game);
-int on_key_release(int keycode, t_game *game);
-int on_destroy(t_game *game);
-int on_expose(t_game *game);
-int on_loop(t_game *game);
-void update_player(t_game *game);
-int can_move_to(t_game *game, double x, double y);
+int		register_hooks(t_game *game);
+int		on_key_press(int keycode, t_game *game);
+int		on_key_release(int keycode, t_game *game);
+int		on_destroy(t_game *game);
+int		on_expose(t_game *game);
+int		on_loop(t_game *game);
+void	update_player(t_game *game);
+int		can_move_to(t_game *game, double x, double y);
 
 int print_error(const char *message);
 void free_strs(char **strs);

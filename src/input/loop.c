@@ -14,15 +14,11 @@
 
 int	register_hooks(t_game *game)
 {
-	mlx_hook(game->win, KeyPress, KeyPressMask,
-		(int (*)())on_key_press, game);
-	mlx_hook(game->win, KeyRelease, KeyReleaseMask,
-		(int (*)())on_key_release, game);
-	mlx_hook(game->win, ClientMessage, NoEventMask,
-		(int (*)())on_destroy, game);
-	mlx_hook(game->win, DestroyNotify, 0, (int (*)())on_destroy, game);
-	mlx_expose_hook(game->win, (int (*)())on_expose, game);
-	mlx_loop_hook(game->mlx, (int (*)())on_loop, game);
+	mlx_hook(game->win, KeyPress, KeyPressMask, on_key_press, game);
+	mlx_hook(game->win, KeyRelease, KeyReleaseMask, on_key_release, game);
+	mlx_hook(game->win, DestroyNotify, 0, on_destroy, game);
+	mlx_expose_hook(game->win, on_expose, game);
+	mlx_loop_hook(game->mlx, on_loop, game);
 	return (0);
 }
 

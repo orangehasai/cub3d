@@ -45,11 +45,15 @@ int	on_key_release(int keycode, t_game *game)
 int	on_destroy(t_game *game)
 {
 	game->running = 0;
+	game->win = NULL;
+	mlx_loop_end(game->mlx);
 	return (0);
 }
 
 int	on_expose(t_game *game)
 {
+	if (!game->running || !game->win)
+		return (0);
 	mlx_put_image_to_window(game->mlx, game->win, game->frame.img, 0, 0);
 	return (0);
 }

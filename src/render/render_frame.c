@@ -53,6 +53,8 @@ int	render_frame(t_game *game)
 {
 	int	x;
 
+	if (!game->running || !game->win)
+		return (0);
 	fill_background(game);
 	x = 0;
 	while (x < game->frame.width)

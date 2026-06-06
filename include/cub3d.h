@@ -149,6 +149,7 @@ int validate_map(t_game *game);
 int		render_frame(t_game *game);
 void	put_pixel(t_img *img, int x, int y, int color);
 void	raycast_column(t_game *game, int x);
+void	prepare_texture_sample(t_game *game, t_ray *ray);
 int		get_texel(t_img *tex, int x, int y);
 
 int on_key_press(int keycode, t_game *game);

@@ -80,12 +80,14 @@ void	raycast_column(t_game *game, int x)
 {
 	t_ray	ray;
 	int		steps;
+	int		hit;
 
 	ft_bzero(&ray, sizeof(ray));
 	init_ray_dir(game, &ray, x);
 	init_ray_delta(&ray);
 	init_ray_step(game, &ray);
 	steps = 0;
+	hit = 0;
 	while (steps++ < game->scene.map.width * game->scene.map.height)
 	{
 		step_ray(&ray);
@@ -93,6 +95,11 @@ void	raycast_column(t_game *game, int x)
 			|| ray.map_y >= game->scene.map.height)
 			break ;
 		if (game->scene.map.grid[ray.map_y][ray.map_x] == '1')
+		{
+			hit = 1;
 			break ;
+		}
 	}
+	if (hit)
+		prepare_texture_sample(game, &ray);
 }

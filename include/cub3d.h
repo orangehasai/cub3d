@@ -146,9 +146,10 @@ int parse_elements(t_scene *scene, char **lines, int *map_start_index);
 int parse_map(t_scene *scene, char **lines, int map_start_index);
 int validate_map(t_game *game);
 
-int render_frame(t_game *game);
-void raycast_column(t_game *game, int x);
-int get_texel(t_img *tex, int x, int y);
+int		render_frame(t_game *game);
+void	put_pixel(t_img *img, int x, int y, int color);
+void	raycast_column(t_game *game, int x);
+int		get_texel(t_img *tex, int x, int y);
 
 int on_key_press(int keycode, t_game *game);
 int on_key_release(int keycode, t_game *game);

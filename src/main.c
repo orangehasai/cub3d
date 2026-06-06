@@ -54,6 +54,8 @@ static int	run_game(t_game *game, const char *path)
 		return (1);
 	if (init_textures(game))
 		return (1);
+	if (render_frame(game))
+		return (1);
 	return (0);
 }
 

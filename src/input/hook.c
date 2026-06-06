@@ -45,7 +45,6 @@ int	on_key_release(int keycode, t_game *game)
 int	on_destroy(t_game *game)
 {
 	game->running = 0;
-	mlx_loop_end(game->mlx);
 	return (0);
 }
 

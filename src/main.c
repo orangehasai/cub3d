@@ -6,7 +6,7 @@
 /*   By: stonegaw <stonegaw@student.42tokyo.jp>     +#+  +:+       +#+        */
 /*                                                +#+#+#+#+#+   +#+           */
 /*   Created: 2026/06/05 18:01:37 by stonegaw          #+#    #+#             */
-/*   Updated: 2026/06/05 23:48:14 by stonegaw         ###   ########.fr       */
+/*   Updated: 2026/06/06 13:54:31 by stonegaw         ###   ########.fr       */
 /*                                                                            */
 /* ************************************************************************** */
 
@@ -44,15 +44,9 @@ static int	run_game(t_game *game, const char *path)
 	if (read_file(path, &lines))
 		return (1);
 	if (parse_elements(&game->scene, lines, &map_start_index))
-	{
-		free_strs(lines);
-		return (1);
-	}
+		return (free_strs(lines), 1);
 	if (parse_map(&game->scene, lines, map_start_index))
-	{
-		free_strs(lines);
-		return (1);
-	}
+		return (free_strs(lines), 1);
 	free_strs(lines);
 	if (validate_map(game))
 		return (1);

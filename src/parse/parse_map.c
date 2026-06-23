@@ -68,6 +68,17 @@ static int	copy_map_rows(t_map *map, char **lines, int map_start_index)
 	return (0);
 }
 
+static int	validate_map_size(t_map *map)
+{
+	if (map->width >= MAP_MAX_AREA || map->height >= MAP_MAX_AREA
+		|| map->width * map->height >= MAP_MAX_AREA)
+	{
+		free_map(map);
+		return (print_error("map is too large"));
+	}
+	return (0);
+}
+
 int	parse_map(t_scene *scene, char **lines, int map_start_index)
 {
 	t_map	*map;
@@ -78,5 +89,7 @@ int	parse_map(t_scene *scene, char **lines, int map_start_index)
 	if (copy_map_rows(map, lines, map_start_index))
 		return (1);
 	map->width = get_map_width(map->rows, map->height);
+	if (validate_map_size(map))
+		return (1);
 	return (0);
 }

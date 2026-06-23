@@ -33,6 +33,7 @@
 # define MOVE_SPEED 3.0
 # define ROT_SPEED 2.0
 # define PLAYER_RADIUS 0.25
+# define MAP_MAX_AREA 25000
 
 typedef struct s_rgb
 {

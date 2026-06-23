@@ -62,7 +62,7 @@ static int	parse_texture(char **dst, const char *value)
 
 	if (*dst)
 		return (print_error("duplicate texture identifier"));
-	path = ft_strtrim(value, " \t");
+	path = ft_strtrim(value, " ");
 	if (!path)
 		return (print_error("invalid texture path"));
 	if (*path == '\0')
@@ -79,17 +79,17 @@ static int	parse_texture(char **dst, const char *value)
 static int	parse_element(t_scene *scene, const char *line, int *matched)
 {
 	*matched = 1;
-	if (ft_strncmp(line, "NO ", 3) == 0 || ft_strncmp(line, "NO\t", 3) == 0)
+	if (ft_strncmp(line, "NO ", 3) == 0)
 		return (parse_texture(&scene->no_path, line + 3));
-	if (ft_strncmp(line, "SO ", 3) == 0 || ft_strncmp(line, "SO\t", 3) == 0)
+	if (ft_strncmp(line, "SO ", 3) == 0)
 		return (parse_texture(&scene->so_path, line + 3));
-	if (ft_strncmp(line, "WE ", 3) == 0 || ft_strncmp(line, "WE\t", 3) == 0)
+	if (ft_strncmp(line, "WE ", 3) == 0)
 		return (parse_texture(&scene->we_path, line + 3));
-	if (ft_strncmp(line, "EA ", 3) == 0 || ft_strncmp(line, "EA\t", 3) == 0)
+	if (ft_strncmp(line, "EA ", 3) == 0)
 		return (parse_texture(&scene->ea_path, line + 3));
-	if (ft_strncmp(line, "F ", 2) == 0 || ft_strncmp(line, "F\t", 2) == 0)
+	if (ft_strncmp(line, "F ", 2) == 0)
 		return (parse_color(line + 2, &scene->floor));
-	if (ft_strncmp(line, "C ", 2) == 0 || ft_strncmp(line, "C\t", 2) == 0)
+	if (ft_strncmp(line, "C ", 2) == 0)
 		return (parse_color(line + 2, &scene->ceiling));
 	*matched = 0;
 	return (0);

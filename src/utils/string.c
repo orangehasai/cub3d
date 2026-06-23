@@ -14,7 +14,7 @@
 
 const char	*skip_spaces(const char *str)
 {
-	while (*str == ' ' || *str == '\t')
+	while (*str == ' ')
 		str++;
 	return (str);
 }
